@@ -1,0 +1,555 @@
+Program.Sub.Preflight.Start
+Variable.UDT.JobData.Define("Job",String,Job)
+Variable.UDT.JobData.Define("Suffix",String,Suffix)
+Variable.UDT.JobData.Define("Seq",String,Seq)
+Variable.UDT.JobData.Define("LMO",String,LMO)
+Variable.UDT.JobData.Define("Part",String,Part)
+Variable.UDT.JobData.Define("Units_Open",Float,Units_Open)
+Variable.UDT.JobData.Define("Date_Start",Date,Date_Start)
+Variable.UDT.JobData.Define("Date_Due",Date,Date_Due)
+Variable.uGlobal.uJobData.Declare("JobData")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'Coded by: WAW
+'Date: 08/5/2017
+'Hooks: 28600 (Automated Work Order Generation, generate data hook)
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+f.Intrinsic.Control.CallSub(XML,"SAVEPATH",v.Args.SAVEPATH)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4644_Bysoft_AutoWO.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	f.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.SetErrorHandler("Unload_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+'Close the connection and end the program
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Unload_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4644_Bysoft_AutoWO.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	f.Intrinsic.Control.End
+Function.Intrinsic.Control.EndIf
+Program.Sub.Unload.End
+
+Program.Sub.fileCharacter.Start
+F.Intrinsic.Control.SetErrorHandler("fileCharacter_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+v.Local.sVal.Declare(String)
+
+f.Intrinsic.String.Replace(v.Args.VAL,"&","&amp;",v.Local.sVal)
+f.Intrinsic.String.Replace(v.Local.sVal,"'","&apos;",v.Local.sVal)
+f.Intrinsic.String.Replace(v.Local.sVal,"<","&lt;",v.Local.sVal)
+f.Intrinsic.String.Replace(v.Local.sVal,">","&gt;",v.Local.sVal)
+f.Intrinsic.String.Replace(v.Local.sVal,v.Ambient.DblQuote,"&quot;",v.Local.sVal)
+
+f.Intrinsic.Variable.AddRV("VAL",v.Local.sVal)
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("fileCharacter_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4644_Bysoft_AutoWO.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	f.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.fileCharacter.End
+
+Program.Sub.XML.Start
+F.Intrinsic.Control.SetErrorHandler("XML_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+v.Local.sSel.Declare(String)
+v.Local.sRet.Declare(string)
+v.Local.sJobRet.Declare(String)
+v.Local.sCustRet.Declare(String)
+v.Local.iFor.Declare(long)
+v.Local.sFieldRef.Declare(String)
+v.Local.sFilePath.Declare(String)
+v.Local.sFileName.Declare(String)
+v.Local.sHold.Declare(String)
+v.Local.sTmp.Declare(string)
+v.Local.sLaborSeqRet.Declare(String)
+v.Local.sMaterialSeqRet.Declare(String)
+v.Local.sJob.Declare(string)
+v.Local.sSuffix.Declare(String)
+v.Local.dStart.Declare(Date)
+v.Local.dDue.Declare(Date)
+V.Local.sPart.Declare(string)
+v.Local.sRev.Declare(string)
+v.Local.sCadFile.Declare(String)
+v.Local.iHold.Declare(long)
+v.Local.sPathHOld.Declare(String)
+v.Local.sImportFilter.Declare(String)
+v.Local.irowcnt.Declare(long)
+v.Local.sreadrow.Declare(string)
+v.Local.i.Declare(long)
+v.Local.ssql.Declare(String)
+v.Local.sdatedue.Declare(String)
+v.Local.sstartdate.Declare(String)
+v.Local.smonth.Declare(string)
+v.Local.sday.Declare(string)
+v.Local.syear.Declare(String)
+
+
+f.Intrinsic.UI.InvokeWaitDialog("Generating XML Files...")
+
+Function.Intrinsic.BDF.Load("AUX001","AUX001")
+Function.Intrinsic.BDF.ReadRowCount("AUX001",Variable.local.iRowCnt)
+Function.Intrinsic.Math.Sub(Variable.Local.iRowCnt,1,Variable.Local.iRowCnt)
+
+Function.Intrinsic.Control.For(Variable.Local.i,0,Variable.Local.iRowCnt,1)
+	'Read data from AUX001
+	Function.Intrinsic.BDF.ReadRow("AUX001",Variable.local.i,Variable.Local.sReadRow)
+	'string delimiter(|~|) splits row from a string into an array
+	Function.Intrinsic.String.Split(Variable.Local.sReadRow,"|~|",Variable.local.sreadrow)	
+	f.Intrinsic.String.GSSPartString(v.Local.sreadrow(1),v.Local.sreadrow(2),v.Local.spart)
+	
+	'pad the line of the so with a 0
+	f.Intrinsic.String.RPad(v.Local.sreadrow(9),"0",4,v.Local.sreadrow(9))
+	'query for the job and suffix
+	f.Intrinsic.String.Build("Select JOB, SUFFIX from V_ORDER_TO_WO where ORDER_NO = '{0}' and ORDER_LINE = '{1}'",v.Local.sreadrow(8),v.Local.sreadrow(9),v.Local.ssql)
+	F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+	F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+		v.Local.sJob.Set(v.odbc.con!rst.FieldValTrim!JOB)
+		v.Local.sSuffix.Set(v.ODBC.con!rst.FieldValTrim!SUFFIX)
+
+			'check to see if the datatable currently exists, if so close it
+			f.intrinsic.Control.If(v.DataTable.dtXML.Exists,=,"True")
+				f.Data.DataTable.Close("dtXML")
+			f.Intrinsic.Control.EndIf
+			'create the datatable
+			' look for labor sequence that will go to a nesting interface flagged wc
+			f.Intrinsic.String.Build("select Job, Suffix, Seq, LMO, Part, Units_Open, Date_Start, Date_Due from V_JOB_OPERATIONS where Job = '{0}' and Suffix = '{1}' and LMO = 'L' and FLAG_SET_UP <> 'Y' and FLAG_CLOSED<>'Y'",v.Local.sJob,v.Local.sSuffix,v.Local.sSel)
+			F.ODBC.Connection!con.OpenRecordsetRO("rstJOBOP",V.Local.sSel)
+			F.Intrinsic.Control.If(V.ODBC.con!rstJOBOP.EOF,=,False)
+				f.Data.DataTable.CreateFromSQL("dtXML","con",v.Local.sSel,True)		
+			f.Intrinsic.Control.EndIf
+			f.ODBC.con!rstJOBOP.close
+			
+		f.ODBC.con!rst.Close	
+	f.Intrinsic.Control.Else
+		f.ODBC.con!rst.Close
+		
+		f.Intrinsic.Control.If(v.Local.sreadrow(13).pervasivedate,<>,"")
+			f.Intrinsic.String.Build("Select JOB, SUFFIX from V_JOB_HEADER where PART = '{0}' and DATE_DUE = '{1}'",v.Local.spart,v.Local.sreadrow(13).pervasivedate,v.Local.ssql)	
+			F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+				v.Local.sJob.Set(v.odbc.con!rst.FieldValTrim!JOB)
+				v.Local.sSuffix.Set(v.ODBC.con!rst.FieldValTrim!SUFFIX)
+				
+				'check to see if the datatable currently exists, if so close it
+				f.intrinsic.Control.If(v.DataTable.dtXML.Exists,=,"True")
+					f.Data.DataTable.Close("dtXML")
+				f.Intrinsic.Control.EndIf
+				'create the datatable
+				' look for labor sequence that will go to a nesting interface flagged wc
+				f.Intrinsic.String.Build("select Job, Suffix, Seq, LMO, Part, Units_Open, Date_Start, Date_Due  from V_Job_Operations where Job = '{0}' and Suffix = '{1}' and LMO = 'L' and PART='LAS1' and FLAG_SET_UP<>'Y' and FLAG_CLOSED<>'Y'",v.Local.sJob,v.Local.sSuffix,v.Local.sSel)
+				F.ODBC.Connection!con.OpenRecordsetRO("rstJOBOP",V.Local.sSel)
+				F.Intrinsic.Control.If(V.ODBC.con!rstJOBOP.EOF,=,False)	
+					f.Data.DataTable.CreateFromSQL("dtXML","con",v.Local.sSel,True)
+				f.Intrinsic.Control.EndIf
+				f.ODBC.con!rstJOBOP.close	
+			f.Intrinsic.Control.EndIf
+			f.ODBC.con!rst.Close
+		f.Intrinsic.Control.EndIf
+	f.Intrinsic.Control.EndIf
+	
+	f.Intrinsic.Control.If(v.DataTable.dtXML.Exists,=,"True")
+
+		' Job Header Part, Date_Opened, Date_Due, and Customer are needed for the XML
+		f.Intrinsic.String.Build("select Job, Suffix, Part, Date_Opened, Date_Due, Customer, Sales_Order, Sales_Order_Line, Description, Customer_PO, Priority from v_Job_Header where Job = '{0}' and Suffix = '{1}'",v.Local.sJob,v.Local.sSuffix,v.Local.sSel)
+		f.ODBC.Connection!Con.ExecuteAndReturn(v.Local.sSel,v.Local.sJobRet)
+		f.Intrinsic.String.Split(v.Local.sJobRet,"*!*",v.Local.sJobRet)
+		v.Local.sJobRet.RedimPreserve(0,10)
+	
+		f.Intrinsic.String.Build("select Date_Opened, Date_Due from v_Job_Header where Job = '{0}' and Suffix = '{1}'",v.Local.sJob,v.Local.sSuffix,v.Local.sSel)
+		f.ODBC.Connection!Con.OpenRecordsetRO("rstSel",v.Local.sSel)
+		f.Intrinsic.Control.If(v.ODBC.Con!rstSel.EOF,=,false)
+			v.Local.dstart.Set(v.ODBC.Con!rstSel.FieldValtrim!Date_Opened)
+		f.Intrinsic.Control.EndIf
+		f.ODBC.Con!rstSel.Close
+			
+'			'format the date
+'			f.Intrinsic.String.Left(v.Local.sstartdate,2,v.Local.sday)
+'			
+'			f.Intrinsic.String.Mid(v.Local.sstartdate,2,2,v.Local.smonth)
+'			f.Intrinsic.String.Right(v.Local.sstartdate,2,v.Local.syear)
+'			
+'			
+'			f.Intrinsic.String.Build("{0}/{1}/{2}",v.Local.sday,v.Local.smonth,v.Local.syear,v.Local.sstartdate)
+'			v.Local.dStart.Set(v.Local.sstartdate)
+'		
+		f.Intrinsic.String.Build("select Date_Due from V_Job_Operations where Job = '{0}' and Suffix = '{1}' and LMO = 'L' and Seq = '{2}' order by Seq",v.Local.sJob,v.Local.sSuffix,v.DataTable.dtXML(0).Seq!fieldvaltrim,v.Local.sSel)
+		f.ODBC.Connection!Con.OpenRecordsetRO("rstSel",v.Local.sSel)
+		f.Intrinsic.Control.If(v.ODBC.Con!rstSel.EOF,=,false)
+			v.Local.dDue.Set(v.ODBC.Con!rstSel.FieldValtrim!Date_Due)
+		f.Intrinsic.Control.EndIf
+		f.ODBC.Con!rstSel.Close
+		
+'			'format the date
+'			f.Intrinsic.String.Left(v.Local.sdatedue,2,v.Local.sday)
+'			f.Intrinsic.String.Mid(v.Local.sdatedue,2,2,v.Local.smonth)
+'			f.Intrinsic.String.Right(v.Local.sdatedue,2,v.Local.syear)
+'			
+'			f.Intrinsic.String.Build("{0}/{1}/{2}",v.Local.sday,v.Local.smonth,v.Local.syear,v.Local.sdatedue)
+'			v.Local.ddue.Set(v.Local.sdatedue)
+	
+		f.Intrinsic.Control.If(v.Local.dDue,<,v.Local.dStart)
+			v.Local.dStart.Set(v.Local.dDue)
+		f.Intrinsic.Control.EndIf
+		
+		' Customer Name is also needed
+		f.Intrinsic.String.Build("select Name_Customer from v_Customer_Master where Customer = '{0}'",v.Local.sJobRet(5).Trim,v.Local.sSel)
+		f.ODBC.Connection!Con.ExecuteAndReturn(v.Local.sSel,v.Local.sCustRet)
+		
+		' create the document
+		F.global.xml.createDocument("xmlDoc",False,True,False,False)
+		F.global.xml.SetRoot("xmlDoc","ErpExchange")
+		
+		' set new line text
+		F.Intrinsic.String.Concat(V.Ambient.NewLine,V.Ambient.Tab,V.Local.shold)
+		F.global.xml.appendNode("xmlDoc","ErpExchange",V.Local.shold)
+		
+		f.Global.XML.CreateElementNode("xmlDoc","Version","1.2")
+		f.Global.XML.AppendNodeToRoot("xmlDoc","Version")
+		F.global.xml.appendNode("xmlDoc","Version",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","Version")
+		
+		' create Orders node
+		f.Global.XML.CreateElementNode("xmlDoc","Orders","")
+		f.Global.XML.AppendNodeToRoot("xmlDoc","Orders")
+		F.global.xml.appendNode("xmlDoc","Orders",V.Local.shold)
+	
+		' ======================== ERP ORDER
+		' create ErpOrder node
+		f.Global.XML.CreateElementNode("xmlDoc","ErpOrder","")
+		f.Global.XML.AppendNode("xmlDoc","Orders","ErpOrder")
+		F.global.xml.appendNode("xmlDoc","ErpOrder",V.Local.shold)
+		
+		' Order Number
+		v.Local.sTmp.Set(v.Local.sJobRet(0).Trim)
+		f.Intrinsic.Control.If(v.Local.sJobRet(1).Trim,<>,"")
+			f.Intrinsic.String.Build("{0}-{1}",v.Local.sTmp,v.Local.sJobRet(1).Trim,v.Local.sTmp)
+		f.Intrinsic.Control.EndIf
+		f.Global.XML.CreateElementNode("xmlDoc","OrderNumber",v.Local.sTmp.Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","OrderNumber")
+		F.global.xml.appendNode("xmlDoc","OrderNumber",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","OrderNumber")
+		
+		' Part
+		' 07/21/2015 -- jct-- per Adam, the part needs to be formatted as Part_Rev
+		f.Intrinsic.String.RPad(v.Local.sJobRet(2).Trim," ",20,v.Local.sJobRet(2))
+		f.Intrinsic.String.Left(v.Local.sJobRet(2),17,v.Local.sPart)
+		f.Intrinsic.String.Right(v.Local.sJobRet(2),3,v.Local.sRev)
+		f.Intrinsic.Control.If(v.Local.sRev.Trim,<>,"")
+			f.Intrinsic.String.Build("{0}_{1}",v.Local.sPart.Trim,v.Local.sRev.Trim,v.Local.sPart)
+		f.Intrinsic.Control.EndIf
+		f.Intrinsic.Control.CallSub(filecharacter,"VAL",v.Local.sPart)
+		v.Local.sPart.Set(v.Args.VAL)
+		f.Global.XML.CreateElementNode("xmlDoc","Label",v.Local.sPart.Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","Label")
+		F.global.xml.appendNode("xmlDoc","Label",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","Label")
+		
+		' Date Opened
+		'f.Intrinsic.String.Format(v.Local.sJobRet(3),"yyyy-mm-ddThh:nn:ss",v.Local.sTmp)
+		f.Intrinsic.String.Format(v.Local.dStart,"yyyy-mm-ddThh:nn:ss",v.Local.sTmp)
+		f.Global.XML.CreateElementNode("xmlDoc","StartDate",v.Local.sTmp)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","StartDate")
+		F.global.xml.appendNode("xmlDoc","StartDate",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","StartDate")
+		
+		' Date Due
+		' 09-29-2015 -- jct -- per Adam, target date should always be Seq Due Date
+		'f.Intrinsic.String.Format(v.Local.sJobRet(4),"yyyy-mm-ddThh:nn:ss",v.Local.sTmp)
+		f.Intrinsic.String.Format(v.Local.dDue,"yyyy-mm-ddThh:nn:ss",v.Local.sTmp)
+		f.Global.XML.CreateElementNode("xmlDoc","TargetDate",v.Local.sTmp)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","TargetDate")
+		F.global.xml.appendNode("xmlDoc","TargetDate",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","TargetDate")
+		
+		' Import Type
+		f.Global.XML.CreateElementNode("xmlDoc","ImportType","NewOrder")
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","ImportType")
+		F.global.xml.appendNode("xmlDoc","ImportType",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","ImportType")
+		
+		' 08/31/2015 -- jct -- added ImportFilter node, per Adam
+		' moved from below, since values are needed in both places	
+		f.Intrinsic.String.Build("select Seq, Part, UM from V_Job_Operations where Job = '{0}' and Suffix = '{1}' and LMO = 'M' and seq <'{2}'order by Seq desc",v.Local.sJob,v.Local.sSuffix,v.DataTable.dtXML(0).SEQ!fieldvaltrim,v.Local.sSel)
+		f.ODBC.Connection!Con.ExecuteAndReturn(v.Local.sSel,v.Local.sMaterialSeqRet)
+		f.Intrinsic.String.Split(v.Local.sMaterialSeqRet,"#$#",v.Local.sMaterialSeqRet)
+		v.Local.sMaterialSeqRet.RedimPreserve(0,0)
+		f.Intrinsic.String.Split(v.Local.sMaterialSeqRet,"*!*",v.Local.sMaterialSeqRet)
+		v.Local.sMaterialSeqRet.RedimPreserve(0,2)
+		
+		' Material Type - will be first 9 characters of the Part
+		v.Local.sImportFilter.Set(v.Local.sMaterialSeqRet(1).Left9)
+		f.Intrinsic.Control.CallSub(filecharacter,"VAL",v.Local.sImportFilter)
+		v.Local.sImportFilter.Set(v.Args.VAL)
+		
+		f.Intrinsic.String.Build("{0}\TEST4644\ErpImport\config\{1}.pis",v.Caller.FilesDir,v.Local.sImportFilter,v.Local.sImportFilter)
+	'	f.Intrinsic.String.Build("\\HF-APPS\BystronicData\Bysoft7\Pmc\ErpImport\config\{0}.pis",v.Local.sImportFilter,v.Local.sImportFilter)
+		f.Global.XML.CreateElementNode("xmlDoc","Importfilter",v.Local.sImportFilter)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","Importfilter")
+		F.global.xml.appendNode("xmlDoc","Importfilter",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","Importfilter")
+	
+		' Automatic
+		f.Global.XML.CreateElementNode("xmlDoc","Automatic","True")
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","Automatic")
+		F.global.xml.appendNode("xmlDoc","Automatic",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","Automatic")
+		
+		' Description
+		f.Intrinsic.Control.CallSub(filecharacter,"VAL",v.Local.sJobRet(8).Trim)
+		v.Local.sJobRet(8).Set(v.Args.VAL)
+		f.Global.XML.CreateElementNode("xmlDoc","Info",v.Local.sJobRet(8).Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","Info")
+		F.global.xml.appendNode("xmlDoc","Info",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","Info")
+		
+		' Customer Name
+		f.Intrinsic.Control.CallSub(filecharacter,"VAL",v.Local.sCustRet.Trim)
+		v.Local.sCustRet.Set(v.Args.VAL)
+		f.Global.XML.CreateElementNode("xmlDoc","Customer",v.Local.sCustRet.Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","Customer")
+		F.global.xml.appendNode("xmlDoc","Customer",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","Customer")
+		
+		' Customer Number
+		f.Intrinsic.Control.CallSub(filecharacter,"VAL",v.Local.sJobRet(5).Trim)
+		v.Local.sJobRet(5).Set(v.Args.VAL)
+		f.Global.XML.CreateElementNode("xmlDoc","CustomerNumber",v.Local.sJobRet(5).Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","CustomerNumber")
+		F.global.xml.appendNode("xmlDoc","CustomerNumber",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","CustomerNumber")
+		
+		' Customer PO
+		f.Global.XML.CreateElementNode("xmlDoc","CustomerOrderNumber",v.Local.sJobRet(9).Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","CustomerOrderNumber")
+		F.global.xml.appendNode("xmlDoc","CustomerOrderNumber",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","CustomerOrderNumber")
+		
+		' Erp Info 1 = Sales Order
+		f.Intrinsic.Control.If(v.Local.sJobRet(6).Long,=,0)
+			v.Local.sJobRet(6).Set("")
+		f.Intrinsic.Control.EndIf
+		f.Global.XML.CreateElementNode("xmlDoc","ErpInfo1",v.Local.sJobRet(6).Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","ErpInfo1")
+		F.global.xml.appendNode("xmlDoc","ErpInfo1",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","ErpInfo1")
+		
+		' Erp Info 2 = Order Line
+		f.Intrinsic.Control.If(v.Local.sJobRet(6).Trim,=,"")
+			v.Local.sJobRet(7).Set("")
+		f.Intrinsic.Control.EndIf
+		f.Global.XML.CreateElementNode("xmlDoc","ErpInfo2",v.Local.sJobRet(7).Trim)
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","ErpInfo2")
+		F.global.xml.appendNode("xmlDoc","ErpInfo2",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","ErpInfo2")
+		
+		' Erp Info 3 = Material Code
+		f.Intrinsic.Control.CallSub(filecharacter,"VAL",v.Local.sMaterialSeqRet(1))
+		v.Local.sMaterialSeqRet(1).Set(v.Args.VAL)
+		f.Intrinsic.String.RPad(v.Local.sMaterialSeqRet(1).Trim," ",20,v.Local.sMaterialSeqRet(1))
+		f.Intrinsic.String.Left(v.Local.sMaterialSeqRet(1),17,v.Local.sPart)
+		f.Intrinsic.String.Right(v.Local.sMaterialSeqRet(1),3,v.Local.sRev)
+		f.Intrinsic.Control.If(v.Local.sRev.Trim,<>,"")
+			f.Intrinsic.String.Build("{0}_{1}",v.Local.sPart.Trim,v.Local.sRev.Trim,v.Local.sMaterialSeqRet(1))
+		f.Intrinsic.Control.Else
+			v.Local.sMaterialSeqRet(1).Set(v.Local.sPart)
+		f.Intrinsic.Control.EndIf
+		f.Global.XML.CreateElementNode("xmlDoc","ErpInfo3",v.Local.sMaterialSeqRet(1))
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","ErpInfo3")
+		F.global.xml.appendNode("xmlDoc","ErpInfo3",V.Local.shold)
+		f.Global.XML.DestroyNode("xmlDoc","ErpInfo3")
+		
+		' ======================== PARTS
+		' create Parts node
+		f.Global.XML.CreateElementNode("xmlDoc","Parts","")
+		f.Global.XML.AppendNode("xmlDoc","ErpOrder","Parts")
+		F.global.xml.appendNode("xmlDoc","Parts",V.Local.shold)
+		
+		' create new ErpPart Node, for each nesting Labor sequence
+		f.Intrinsic.Control.For(v.Local.iFor, 0, v.DataTable.dtXML.RowCount--,1)
+		
+			' ErpPart
+			f.Global.XML.CreateElementNode("xmlDoc","ErpPart","")
+			f.Global.XML.AppendNode("xmlDoc","Parts","ErpPart")
+			f.Global.XML.AppendNode("xmlDoc","ErpOrder","Parts")
+			F.global.xml.appendNode("xmlDoc","ErpPart",V.Local.shold)
+		
+			' 08/31/2015 -- jct -- added ImportFilter node, per Adam
+			' moved from below to use value, here	
+			f.Intrinsic.String.RPad(v.Local.sJobRet(2).Trim," ",20,v.Local.sJobRet(2))
+			f.Intrinsic.String.Left(v.Local.sJobRet(2),17,v.Local.sPart)
+			f.Intrinsic.Control.CallSub(filecharacter,"VAL",v.Local.sPart)
+			v.Local.sPart.Set(v.Args.VAL)
+			f.Intrinsic.String.Right(v.Local.sJobRet(2),3,v.Local.sRev)
+			f.Intrinsic.Control.If(v.Local.sRev.Trim,<>,"")
+				f.Intrinsic.String.Build("{0}_{1}",v.Local.sPart.Trim,v.Local.sRev.Trim,v.Local.sPart)
+			f.Intrinsic.Control.EndIf
+		
+			' CadFile
+			f.Intrinsic.String.Build("{0}\TEST4644\ErpImport\cad\{1}\{2}.dxf",v.Caller.FilesDir,v.Local.sJobRet(5).Trim,v.Local.sPart.Trim,v.Local.sCadFile)
+		'	f.Intrinsic.String.Build("\\HF-APPS\BystronicData\Bysoft7\Pmc\ErpImport\cad\{0}\{1}.dxf",v.Local.sJobRet(5).Trim,v.Local.sPart.Trim,v.Local.sCadFile)
+			f.Global.XML.CreateElementNode("xmlDoc","CadFile",v.Local.sCadFile)
+			f.Global.XML.AppendNode("xmlDoc","ErpPart","CadFile")
+			F.global.xml.appendNode("xmlDoc","CadFile",V.Local.shold)
+			f.Global.XML.DestroyNode("xmlDoc","CadFile")
+		
+			' 07-15-2015 -- jct -- Info2 will hold Material Seq - Labor Seq - WC
+			' Material Seq
+			f.Intrinsic.String.Build("{0}-{1}-{2}",v.Local.sMaterialSeqRet(0).Trim,v.DataTable.dtXML(v.Local.ifor).SEQ!fieldvaltrim,v.DataTable.dtXML(v.Local.ifor).PART!fieldvaltrim,v.Local.sTmp)
+			f.Global.XML.CreateElementNode("xmlDoc","Info2",v.Local.sTmp)
+			f.Global.XML.AppendNode("xmlDoc","ErpPart","Info2")
+			F.global.xml.appendNode("xmlDoc","Info2",V.Local.shold)
+			f.Global.XML.DestroyNode("xmlDoc","Info2")
+		
+			' Next 3 workcenters
+			f.Intrinsic.String.Build("select Part from V_JOB_OPERATIONS where Job = '{0}' and Suffix = '{1}' and LMO = 'L' and Seq > '{2}' order by Seq",v.Local.sJob,v.Local.sSuffix,v.DataTable.dtXML(v.Local.ifor).SEQ!fieldvaltrim,v.Local.sSel)
+			f.ODBC.Connection!Con.ExecuteAndReturn(v.Local.sSel,v.Local.sRet)
+		'	 f.Intrinsic.Control.If(v.Local.sRet.Trim,<>,"")
+				f.Intrinsic.String.Replace(v.Local.sRet,"*!*","",v.Local.sRet)
+				f.Intrinsic.String.Split(v.Local.sRet,"#$#",v.Local.sRet)
+				f.Intrinsic.Control.If(v.Local.sRet(0).Trim,<>,"")
+					v.Local.sRet.RedimPreserve(0,2)
+					f.Intrinsic.String.Join(v.Local.sRet,"~",v.Local.sRet)
+				f.Intrinsic.Control.EndIf
+		'	f.Intrinsic.Control.EndIf	
+		
+			f.Global.XML.CreateElementNode("xmlDoc","Info3",v.Local.sRet)
+			f.Global.XML.AppendNode("xmlDoc","ErpPart","Info3")
+			F.global.xml.appendNode("xmlDoc","Info3",V.Local.shold)
+			f.Global.XML.DestroyNode("xmlDoc","Info3")
+		
+			' 9-29-15 -- jct -- added
+			' Priority
+			f.Global.XML.CreateElementNode("xmlDoc","Priority",50)
+			f.Global.XML.AppendNode("xmlDoc","ErpPart","Priority")
+			F.global.xml.appendNode("xmlDoc","Priority",v.Local.sHold)
+			f.Global.XML.DestroyNode("xmlDoc","Priority")
+		
+		' ======================== PRODUCTION STEPS
+			' create Production Steps node
+			f.Global.XML.CreateElementNode("xmlDoc","ProductionSteps","")
+			f.Global.XML.AppendNode("xmlDoc","ErpPart","ProductionSteps")
+			F.global.xml.appendNode("xmlDoc","ProductionSteps",V.Local.shold)
+		
+			' Erp Production Step
+			f.Global.XML.CreateElementNode("xmlDoc","ErpProductionStep","")
+			f.Global.XML.AppendNode("xmlDoc","ProductionSteps","ErpProductionStep")
+			F.global.xml.appendNode("xmlDoc","ErpProductionStep",V.Local.shold)
+		
+			' Type = Laser Cutting
+			f.Global.XML.CreateElementNode("xmlDoc","ProductionStepType","LaserCutting")
+			f.Global.XML.AppendNode("xmlDoc","ErpProductionStep","ProductionStepType")
+			F.global.xml.appendNode("xmlDoc","ProductionStepType",V.Local.shold)
+			f.Global.XML.DestroyNode("xmlDoc","ProductionStepType")
+		
+			f.Intrinsic.String.Build("select Date_Start, Date_Due from V_JOB_OPERATIONS where Job = '{0}' and Suffix = '{1}' and LMO = 'L' and Seq = '{2}' order by Seq",v.Local.sJob,v.Local.sSuffix,v.DataTable.dtXML(v.Local.iFor).SEQ!fieldvaltrim,v.Local.sSel)
+			f.ODBC.Connection!Con.OpenRecordsetRO("rstSel",v.Local.sSel)
+				f.Intrinsic.Control.If(v.ODBC.Con!rstSel.EOF,=,false)
+					v.Local.dStart.Set(v.ODBC.Con!rstSel.FieldVal!Date_Start)
+					v.Local.dDue.Set(v.ODBC.Con!rstSel.FieldVal!Date_Due)
+				f.Intrinsic.Control.EndIf
+			f.ODBC.Con!rstSel.Close
+			
+			f.Intrinsic.Control.If(v.Local.dDue,<,v.Local.dStart)
+				v.Local.dStart.Set(v.Local.dDue)
+			f.Intrinsic.Control.EndIf
+			
+			' Start Date
+			f.Intrinsic.String.Format(v.Local.dStart,"yyyy-mm-ddThh:nn:ss",v.Local.sTmp)
+			f.Global.XML.CreateElementNode("xmlDoc","StartDate",v.Local.sTmp)
+			f.Global.XML.AppendNode("xmlDoc","ErpProductionStep","StartDate")
+			F.global.xml.appendNode("xmlDoc","StartDate",V.Local.shold)
+			f.Global.XML.DestroyNode("xmlDoc","StartDate")
+			
+			' Date_Due
+			f.Intrinsic.String.Format(v.Local.dDue,"yyyy-mm-ddThh:nn:ss",v.Local.sTmp)
+			f.Global.XML.CreateElementNode("xmlDoc","TargetDate",v.Local.sTmp)
+			f.Global.XML.AppendNode("xmlDoc","ErpProductionStep","TargetDate")
+			F.global.xml.appendNode("xmlDoc","TargetDate",V.Local.shold)
+			f.Global.XML.DestroyNode("xmlDoc","TargetDate")
+		
+			f.Global.XML.DestroyNode("xmlDoc","ErpProductionStep")
+			f.Global.XML.DestroyNode("xmlDoc","ProductionSteps")
+			f.Global.XML.DestroyNode("xmlDoc","ErpPart")
+			f.Global.XML.DestroyNode("xmlDoc","Parts")	
+			
+			'Save document
+			f.Intrinsic.String.Build("ERP{0}-{1}.erpmod",v.Local.sJob,v.Local.sSuffix,v.Local.sFileName)
+			F.global.xml.saveDocument("xmlDoc",v.Args.SAVEPATH,V.Local.sFileName)
+			'close document
+			F.global.xml.CloseDocument("xmlDoc")
+		f.Intrinsic.Control.Next(v.Local.iFor)
+		
+	f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.Next(v.Local.i)
+
+f.Intrinsic.UI.CloseWaitDialog
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("XML_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4644_Bysoft_AutoWO.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	f.Intrinsic.Control.CallSub(unload)
+Function.Intrinsic.Control.EndIf
+Program.Sub.XML.End
+
+
+
+Program.Sub.FilePath.Start
+
+v.Local.sFilePath.Declare(String)
+v.Local.sDATFile.Declare(string)
+v.Local.bExists.Declare(Boolean)
+v.Local.sSavePath.Declare(string)
+v.Local.iFor.Declare(long)
+v.Local.sLine.Declare(String)
+
+f.Intrinsic.String.Build("{0}\GSS_BYS.dat",v.Caller.FilesDir,v.Local.sFilePath)
+f.Intrinsic.File.Exists(v.Local.sFilePath,v.Local.bExists)
+f.Intrinsic.Control.If(v.Local.bExists,=,false)
+	f.Intrinsic.UI.Msgbox("File Save Path Not Found.")
+	f.Intrinsic.Control.CallSub(unload)
+f.Intrinsic.Control.Else
+	f.Intrinsic.File.File2String(v.Local.sFilePath,v.Local.sDATFile)
+f.Intrinsic.Control.EndIf
+
+f.Intrinsic.String.Split(v.Local.sDATFile,v.Ambient.NewLine,v.Local.sLine)
+f.Intrinsic.Control.For(v.Local.iFor,v.Local.sLine.LBound,v.Local.sLine.UBound,1)
+	f.Intrinsic.String.Split(v.Local.sLine(v.Local.iFor),"::",v.Local.sSavePath)
+	v.Local.sSavePath.RedimPreserve(0,1)
+	f.Intrinsic.Control.SelectCase(v.Local.sSavePath(0))
+	f.Intrinsic.Control.Case("WRITE")
+		f.Intrinsic.Control.ExitFor(v.Local.iFor)
+	f.Intrinsic.Control.EndSelect
+f.Intrinsic.Control.Next(v.Local.iFor)
+
+f.Intrinsic.Variable.AddRV("SAVEPATH",v.Local.sSavePath(1).Trim)
+
+Program.Sub.FilePath.End
